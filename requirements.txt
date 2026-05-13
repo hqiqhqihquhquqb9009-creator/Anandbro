@@ -1,0 +1,3 @@
+pytelegramBotAPI
+Flask
+openai
