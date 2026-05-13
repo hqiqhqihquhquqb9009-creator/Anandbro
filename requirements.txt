@@ -1,4 +1,4 @@
 pytelegramBotAPI
 Flask
-openai
+google-generativeai
 
