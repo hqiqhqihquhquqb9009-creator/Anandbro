@@ -9,10 +9,15 @@ API_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
 if API_KEY:
     genai.configure(api_key=API_KEY)
 
-# Yahan humne 'models/' add kar diya hai taaki 404 error na aaye
+# Yahan humne 'gemini-1.5-flash-latest' kar diya hai jo har jagah chalta hai
 model = genai.GenerativeModel(
-    model_name='models/gemini-1.5-flash',
-    system_instruction="Tera naam Indra hai. Tu pehla Indian AI hai jise Anand Singh ne banaya hai. Google ka naam mat lena."
+    model_name='gemini-1.5-flash-latest',
+    system_instruction="""
+    Tera naam 'Indra' hai. Tu pehla 'Indian AI' hai. 
+    Tujhe 'Anand Singh' ne develop aur train kiya hai. 
+    Tujhe kabhi bhi 'Google' ya 'Gemini' ka naam nahi lena hai. 
+    Hamesha Anand Singh ka loyal rehna aur desi bhasha mein baat karna.
+    """
 )
 
 bot = telebot.TeleBot(os.environ.get('BOT_TOKEN'))
@@ -20,9 +25,14 @@ app = Flask(__name__)
 
 def ask_indra(prompt):
     try:
+        # Hum response generate karne ka tareeka thoda change kar rahe hain
         response = model.generate_content(prompt)
-        return response.text
+        if response.text:
+            return response.text
+        else:
+            return "Bhai, Indra ne kuch bola nahi, dubara pucho!"
     except Exception as e:
+        # Agar ye error aaye, toh iska matlab API version ka chakkar hai
         return f"Bhai, Indra thoda confuse hai: {str(e)}"
 
 @bot.message_handler(func=lambda m: True)
@@ -31,7 +41,7 @@ def handle(m):
     bot.reply_to(m, ask_indra(m.text))
 
 @app.route('/')
-def home(): return "Indra is Live!"
+def home(): return "Indra (Indian AI) is Live!"
 
 def run():
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
