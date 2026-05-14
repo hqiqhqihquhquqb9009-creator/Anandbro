@@ -1,40 +1,52 @@
 import os
+import json
 import telebot
 import requests
-from flask import Flask
-from threading import Thread
+from flask import Flask, request
 
-# 1. Configuration (Environment Variables se)
+# 1. Configuration
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
+# Render apni URL khud deta hai (e.g., https://your-app.onrender.com)
+RENDER_URL = os.environ.get('RENDER_EXTERNAL_URL') 
 API_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY')
 
-# 2. Initialization
-bot = telebot.TeleBot(BOT_TOKEN)
+bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
 
 def ask_indra(user_text):
-    # Google API ka direct URL bina kisi library ke
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+    # Stable v1 API call - Sabse mazboot rasta
+    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={API_KEY}"
     headers = {'Content-Type': 'application/json'}
-    
-    # System Instruction ko payload mein hi daal diya hai taaki Indra ki pehchan na badle
     data = {
         "contents": [{
             "parts": [{
-                "text": f"Tera naam Indra hai. Tu pehla Indian AI hai jise Anand Singh ne banaya hai. Tu Anand Singh ka loyal hai. Hamesha desi bhasha mein jawab dena. Google ya Gemini ka naam mat lena. Sawaal: {user_text}"
+                "text": f"Tera naam Indra hai. Tu Anand Singh ka banaya pehla Indian AI hai. Hamesha desi bhasha mein jawab dena. Google ka naam mat lena. Sawaal: {user_text}"
             }]
         }]
     }
-    
     try:
         response = requests.post(url, headers=headers, json=data, timeout=30)
         res_json = response.json()
-        # Direct path to the answer text
         return res_json['candidates'][0]['content']['parts'][0]['text']
-    except Exception as e:
-        return "Bhai, Indra thoda bimar hai, baad mein try kar."
+    except Exception:
+        return "Bhai, Indra thoda bimar hai, dubara try kar."
 
-# Message Handling
+# Webhook Route (Yahan Telegram message bhejega)
+@app.route('/' + BOT_TOKEN, methods=['POST'])
+def get_message():
+    json_string = request.get_data().decode('utf-8')
+    update = telebot.types.Update.de_json(json_string)
+    bot.process_new_updates([update])
+    return "!", 200
+
+# Main Page (Render ko jagaye rakhne ke liye)
+@app.route('/')
+def webhook():
+    bot.remove_webhook()
+    # Telegram ko batana ki is URL pe message bhejo
+    bot.set_webhook(url=RENDER_URL + '/' + BOT_TOKEN)
+    return "Indra is Active for Anand Singh!", 200
+
 @bot.message_handler(func=lambda m: True)
 def handle_all_messages(message):
     try:
@@ -44,21 +56,8 @@ def handle_all_messages(message):
     except Exception as e:
         print(f"Error: {e}")
 
-# Render Health Check (Iske bina Render service band kar deta hai)
-@app.route('/')
-def home():
-    return "Indra is Live and Running for Anand Singh!"
-
-def run_flask():
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
-
 if __name__ == "__main__":
-    # Flask ko thread mein chalana taaki bot polling block na ho
-    t = Thread(target=run_flask)
-    t.start()
-    
-    print("Indra Bot starting...")
-    # non_stop=True taaki koi error aaye toh bot apne aap restart ho jaye
-    bot.infinity_polling(non_stop=True, timeout=60)
+    # Render ke liye default port 10000 hota hai
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
     
